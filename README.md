@@ -57,7 +57,7 @@ AI 代理在自主执行时，一条递归删除、一次磁盘写入、一段�
 
 Windows 用 python，Linux/macOS 用 python3。
 
-`_BT_`bash
+```bash
 # 检查一条 exec（0 = 允许）
 python3 scripts/yotta_guardian.py check exec --cmd "git status"
 
@@ -73,7 +73,7 @@ python3 scripts/yotta_guardian.py check --batch calls.json --json
 # 审计
 python3 scripts/yotta_guardian.py check exec --cmd "..." --audit-log .yotta-guardian/audit.jsonl
 python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --tail 20
-`_BT_`
+```
 
 退出码语义（与元安 / 元审家族一致）：0 = 允许；1 = 允许但带警告（建议人工复核）；2 = 拒绝（high）；3 = 拒绝（critical）；4 = 用法错误 / 致命异常。
 
@@ -82,21 +82,21 @@ python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --tai
 三种方式任选其一，技能文件统一从 **npm** 获取（GitHub 无代理时较慢，npm 可配国内镜像加速）。
 
 ### 方式一：npm（推荐，一行安装）
-`_BT_`bash
+```bash
 # 国内加速（可选）：npm config set registry https://registry.npmmirror.com
 npx -y @yottameta/yotta-guardian -g
 npx -y @yottameta/yotta-guardian --dir <你的技能目录>   # 任意智能体：指定目录安装
-`_BT_`
+```
 > 智能体不在预置列表里？用 --dir 指定它的 skills 目录，或手动复制（方式三）。--list 可查看各智能体对应的默认目录。想手动拿文件也可 npm pack @yottameta/yotta-guardian 解包后按方式二/三安装。
 
 ### 方式二：install.sh 一键安装
 获取技能文件夹后（npm pack 解包或 git clone），进入技能文件夹：
-`_BT_`bash
+```bash
 bash install.sh -g    # 用户级；bash install.sh --list 查看全部目录
 bash install.sh --agent codex   # 指定智能体（--list 可查看可用项）
 bash install.sh       # 项目级：自动检测已存在的 .claude/.cursor/.codex 等 skills 目录
 bash install.sh --dir /path/to/skills
-`_BT_`
+```
 > 覆盖 17 类智能体，含国内 Trae / Qwen / Comate / CodeBuddy / Kimi。Windows 用户：装有 Git Bash 即可用；否则用方式三手动复制。
 
 ### 方式三：手动复制
@@ -128,14 +128,14 @@ bash install.sh --dir /path/to/skills
 
 1. 将本仓库的 SKILL.md 接入任意 AI 智能体的技能/规则系统（见上方安装）。
 2. 在执行任何高风险工具调用前，先跑一次 check：
-   `_BT_`bash
+   ```bash
    python3 scripts/yotta_guardian.py check exec --cmd "<待执行命令>" --json
-   `_BT_`
+   ```
    退出码 2 / 3 时不要执行，向用户说明命中规则；确有授权再用 --allow / --allow-path / 自定义规则放行。
 3. 一次要执行多条时，用 --batch 批量预检：
-   `_BT_`bash
+   ```bash
    python3 scripts/yotta_guardian.py check --batch calls.json --json
-   `_BT_`
+   ```
 4. 写敏感路径 / 修改系统配置前，用 write / edit 检查目标路径与内容。
 5. 高风险操作落审计日志，事后用 audit 查询。
 
