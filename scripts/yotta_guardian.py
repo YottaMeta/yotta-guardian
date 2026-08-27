@@ -51,7 +51,7 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 import guardian_rules as GR  # noqa: E402
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 TOOL_NAME = "yotta-guardian"
 TOOL_CN = "元盾"
 

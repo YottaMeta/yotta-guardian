@@ -1,11 +1,12 @@
 {
   "name": "@yottameta/yotta-guardian",
-  "version": "0.1.0",
-  "description": "元盾 —— 跨智能体的危险调用拦截护栏：确定性规则引擎 + 可插拔意图验证（不绑模型），拦截危险 exec/write/edit 等工具调用，提供审计日志。触发：代理要执行高风险命令、写敏感路径、改系统配置时。边界：默认只读检查，不自动放行危险操作；规则可配置。",
+  "version": "0.1.1",
+  "description": "Yuandun (元盾) — cross-agent dangerous tool-call guardrail: a deterministic rule engine + pluggable intent verifier (model-agnostic) that evaluates exec/write/edit/read/run/shell calls and provides audit logs. Triggers when an agent is about to run a high-risk command, write sensitive paths, or change system config. Boundaries: read-only evaluation by default, configurable allowances.",
   "license": "MIT",
   "keywords": [
     "agent-skills",
-    "yotta-guardian"
+    "yotta-guardian",
+    "security"
   ],
   "files": [
     "SKILL.md",
@@ -17,7 +18,8 @@
     "assets",
     "bin",
     "NOTICE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "README.zh-CN.md"
   ],
   "repository": {
     "type": "git",
