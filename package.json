@@ -1,6 +1,6 @@
 {
   "name": "@yottameta/yotta-guardian",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Yuandun (元盾) — cross-agent dangerous tool-call guardrail: a deterministic rule engine + pluggable intent verifier (model-agnostic) that evaluates exec/write/edit/read/run/shell calls and provides audit logs. Triggers when an agent is about to run a high-risk command, write sensitive paths, or change system config. Boundaries: read-only evaluation by default, configurable allowances.",
   "license": "MIT",
   "keywords": [

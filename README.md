@@ -43,7 +43,7 @@ It is not tied to any single platform: an agent-agnostic toolkit that works in a
 | **Structural** | Evaluates commands, paths and content per tool type (exec / write / edit / read), not naive string matching |
 | **Configurable** | --allow / --allow-path / custom rule JSON (policy / deny / allow / verifier) |
 | **Traceable** | Every verdict lands in a JSONL audit log; audit subcommand filters by denied / tool / time |
-| **Ecosystem distribution** | GitHub + npm + ClawHub synced; install via npx / install.sh / manual copy |
+| **Ecosystem distribution** | GitHub + npm + ClawHub synced; four install methods (npx / git clone / Download ZIP / install.sh) |
 
 ## Commands
 
@@ -80,51 +80,39 @@ Exit codes (same semantics as the YuanAn / YuanShen family): **0** = allowed; **
 
 ## Install
 
-Pick any one of the three methods; skill files are fetched from **npm** (GitHub is slower without a proxy; npm can use a domestic mirror).
+Pick any of the four methods below; the order is the recommended priority. Skill files always come from **npm** (GitHub can be slow without a proxy; npm supports mirrors).
 
-### Method 1: npm (recommended, one-liner)
-```bash
-# domestic mirror (optional): npm config set registry https://registry.npmmirror.com
-npx -y @yottameta/yotta-guardian -g
-npx -y @yottameta/yotta-guardian --dir <your-skills-dir>   # any agent: install to a specific directory
+### Method 1: npm one-liner (recommended)
+
+```text
+# Optional China mirror: npm config set registry https://registry.npmmirror.com
+npx -y @yottameta/yotta-guardian --agent <agent-name>      # install to the agent's default user-level skills dir
+npx -y @yottameta/yotta-guardian --dir <your-skills-dir>   # point to the skills dir itself (e.g. ~/.codex/skills)
 ```
-> Not in the preset list? Use --dir to point at the agent's skills directory, or manual copy (method 3). --list shows each agent's default directory. You can also npm pack @yottameta/yotta-guardian and unpack it to install via method 2 / 3.
 
-### Method 2: install.sh one-shot
-After obtaining the skill folder (npm pack unpack or git clone), enter the folder:
-```bash
-bash install.sh -g    # user level; bash install.sh --list shows all directories
-bash install.sh --agent codex   # specific agent (--list shows available ones)
-bash install.sh       # project level: auto-detect existing .claude/.cursor/.codex skills dirs
-bash install.sh --dir /path/to/skills
+- `--agent <name>` installs to that agent's default user-level directory; `--list` shows each agent's default directory.
+- `--dir <path>` installs to the given directory; for agents not in the preset list, point `--dir` at their skills directory.
+- If the mirror has not synced the new package (404): add `--registry=https://registry.npmjs.org/` (a proxy may be needed in China), or wait for the mirror cache.
+
+### Method 2: git clone (developers / git available)
+
+```text
+git clone https://github.com/YottaMeta/yotta-guardian.git <your-skills-dir>/yotta-guardian
 ```
-> Covers 17 agent families including Trae / Qwen / Comate / CodeBuddy / Kimi. Windows users: works with Git Bash; otherwise use method 3.
 
-### Method 3: manual copy
-Copy the whole yotta-guardian folder into the target agent's skills directory. Common locations (user level; Windows uses %USERPROFILE%, Linux/macOS uses ~):
+### Method 3: GitHub Download ZIP (manual / no git)
 
-| Agent | User-level directory | Project-level directory |
-|---|---|---|
-| Codex | %USERPROFILE%\.codex\skills\yotta-guardian\ | .codex\skills\ |
-| Claude Code | %USERPROFILE%\.claude\skills\yotta-guardian\ | .claude\skills\ |
-| Cursor | %USERPROFILE%\.cursor\skills\yotta-guardian\ | .cursor\skills\ |
-| Windsurf | %USERPROFILE%\.codeium\windsurf\skills\yotta-guardian\ | .windsurf\skills\ |
-| opencode | %USERPROFILE%\.config\opencode\skills\yotta-guardian\ | .opencode\skills\ |
-| Gemini | %USERPROFILE%\.gemini\skills\yotta-guardian\ | .gemini\skills\ |
-| Goose | %USERPROFILE%\.config\goose\skills\yotta-guardian\ | .goose\skills\ |
-| Amp | %USERPROFILE%\.config\agents\skills\yotta-guardian\ | .agents\skills\ |
-| Kiro | %USERPROFILE%\.kiro\skills\yotta-guardian\ | .kiro\skills\ |
-| WorkBuddy | %USERPROFILE%\.workbuddy\skills\yotta-guardian\ | .workbuddy\skills\ |
-| Trae Code CLI | %USERPROFILE%\.traecli\skills\yotta-guardian\ | .traecli\skills\ |
-| Trae IDE (CN) | %USERPROFILE%\.trae-cn\skills\yotta-guardian\ | .trae\skills\ |
-| Qwen Code | %USERPROFILE%\.qwen\skills\yotta-guardian\ | .qwen\skills\ |
-| Comate | %USERPROFILE%\.comate\skills\yotta-guardian\ | .comate\skills\ |
-| CodeBuddy | %USERPROFILE%\.codebuddy\skills\yotta-guardian\ | .codebuddy\skills\ |
-| Kimi | %USERPROFILE%\.kimi\skills\yotta-guardian\ | .kimi\skills\ |
-| Generic AGENTS.md | %USERPROFILE%\.agents\skills\yotta-guardian\ | .agents\skills\ |
+On the GitHub repository `YottaMeta/yotta-guardian`, click **Code → Download ZIP**, unzip it and put the `yotta-guardian` folder into the agent's skills directory.
 
-> If Codex's CODEX_HOME is set, it overrides the default; the same applies to opencode's XDG_CONFIG_HOME. .agents\skills is not a universal directory — only OpenCode / Cursor / Cline / Amp / Kimi / Gemini CLI / GitHub Copilot etc. read it; **Claude Code and Codex do not read it by default**. When unsure, use --dir or let the agent install it.
+### Method 4: install.sh (multi-agent one-liner script)
 
+```text
+bash install.sh --agent <name>   # install to the agent's default user-level directory
+bash install.sh --dir <path>     # install to the given directory
+bash install.sh --list           # list agents -> default directories
+```
+
+> Method 1 uses the npm registry (npmmirror / npmjs) and does not depend on GitHub; Methods 2/3 use GitHub and may fail without a proxy in China.
 ## Usage examples (AI agent)
 
 1. Hook this repo's SKILL.md into any AI agent's skill/rule system (see install above).
