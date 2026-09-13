@@ -7,6 +7,7 @@
 - 新增 `skill-manifest.json`，声明 `before_tool` / `guard_check` / `fallback: explicit-unverified`。
 - Codex 该事件为 `native-audit`：危险调用评估失败时只能审计并触发一次纠偏，不宣称动作前硬拦截。
 - 元阁适配器回归验证 `native-audit` 结果、纠偏信号与审计证据写入。
+- 补充使用范围、授权与法律红线声明，明确本技能不是操作系统沙箱，也不替代宿主权限控制与人工决策。
 
 ## v0.1.2 (2026-08-29)
 
