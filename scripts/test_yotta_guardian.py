@@ -126,6 +126,62 @@ class DestructiveCommandTest(unittest.TestCase):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
 
 
+class WrapperBypassTest(unittest.TestCase):
+    """包装命令解包（v0.1.5）：shell / 提权 / 环境包装不得绕过 argv 级危险分析。"""
+
+    def test_sh_c_wrapped_rm_root(self):
+        r = run_cli(["check", "exec", "--cmd", 'sh -c "' + RM_RF_ROOT + '"'])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("ARG-RM-SYSTEM", r.stdout)
+
+    def test_bash_lc_wrapped_rm_root(self):
+        r = run_cli(["check", "exec", "--cmd", 'bash -lc "' + RM_RF_ROOT + '"'])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_sudo_wrapped_rm_root(self):
+        r = run_cli(["check", "exec", "--cmd", "sudo " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_sudo_with_option_value(self):
+        r = run_cli(["check", "exec", "--cmd", "sudo -u root " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_env_wrapped_dd(self):
+        r = run_cli(["check", "exec", "--cmd", "env FOO=1 " + DD_DEV])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_nohup_wrapped_rm_root(self):
+        r = run_cli(["check", "exec", "--cmd", "nohup " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_timeout_wrapped_rm_root(self):
+        r = run_cli(["check", "exec", "--cmd", "timeout 5 " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_powershell_command_wrapped(self):
+        inner = d("rm", "-rf", "/tmp/x")
+        r = run_cli(["check", "exec", "--cmd", 'pwsh -Command "' + inner + '"'])
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("ARG-RM-ABS", r.stdout)
+
+    def test_nested_wrapper_depth(self):
+        r = run_cli(["check", "exec", "--cmd", 'sudo sh -c "' + RM_RF_ROOT + '"'])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_wrapped_safe_command_allowed(self):
+        r = run_cli(["check", "exec", "--cmd", 'bash -c "ls -la"'])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("ALLOW", r.stdout)
+
+    def test_wrapped_sudo_readonly_allowed(self):
+        r = run_cli(["check", "exec", "--cmd", "sudo systemctl status nginx"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_env_python_allowed(self):
+        r = run_cli(["check", "exec", "--cmd", 'env python3 -c "print(1)"'])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
 class PrivilegeCommandTest(unittest.TestCase):
     def test_chmod_777_root_critical(self):
         r = run_cli(["check", "exec", "--cmd", CHMOD_777_ROOT])

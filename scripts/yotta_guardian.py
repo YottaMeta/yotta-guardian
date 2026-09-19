@@ -51,7 +51,7 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 import guardian_rules as GR  # noqa: E402
 
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 TOOL_NAME = "yotta-guardian"
 TOOL_CN = "元盾"
 
@@ -282,6 +282,14 @@ class RuleEngine:
         argv = _tokenize(call.cmd)
         if not argv:
             return []
+        findings = []
+        # v0.1.5：先做包装解包（sh -c / cmd /c / powershell -Command / sudo / env …），
+        # 否则只看 argv[0] 会漏掉内层真正的危险动词。
+        for sub in _unwrap_argv(argv):
+            findings += self._argv_findings_one(sub)
+        return findings
+
+    def _argv_findings_one(self, argv):
         verb = os.path.basename(argv[0]).lower()
         findings = []
         if verb in _RM_VERBS:
@@ -442,6 +450,100 @@ def _tokenize(cmd):
         return shlex.split(cmd, posix=(os.name != "nt"))
     except ValueError:
         return cmd.split()
+
+
+# ── 包装命令解包（v0.1.5）─────────────────────────────────────────────────
+# 危险动作常被包装：sh -c "…"、bash -lc "…"、cmd /c "…"、powershell -Command "…"、
+# sudo …、env …、nohup …、timeout 5 …。只分析 argv[0] 会漏掉内层动词，
+# 因此先按已知包装表做受控解包（深度上限），再对内层命令跑同一套 argv 规则。
+_UNWRAP_MAX_DEPTH = 3
+
+_SHELL_WRAPPERS = {
+    "sh", "bash", "zsh", "dash", "ksh", "ash", "busybox",
+    "cmd", "cmd.exe", "powershell", "powershell.exe", "pwsh", "pwsh.exe",
+}
+# shell 的「执行字符串」开关：-c / -lc / -ic / /c / /k / -Command
+_SHELL_EXEC_FLAGS = {"/c", "/k", "-command", "-cmd"}
+_SHELL_EXEC_FLAG_RE = re.compile(r"^-[a-z]*c$")
+
+_WRAPPER_SPECS = {
+    "sudo": {"value_opts": {"-u", "-g", "-p", "-C", "-h", "-r", "-t", "-U",
+                            "--user", "--group", "--prompt", "--chdir", "--host",
+                            "--role", "--type", "--other-user", "--close-from"}},
+    "doas": {"value_opts": {"-u", "-C"}},
+    "env": {"value_opts": {"-u", "-S", "-C", "--unset", "--split-string", "--chdir"},
+            "assignments": True},
+    "nohup": {"value_opts": {}},
+    "setsid": {"value_opts": {}},
+    "stdbuf": {"value_opts": {"-i", "-o", "-e", "--input", "--output", "--error"}},
+    "nice": {"value_opts": {"-n", "--adjustment"}},
+    "ionice": {"value_opts": {"-c", "-n", "-p", "--class", "--classdata", "--pid"}},
+    "time": {"value_opts": {"-o", "-f", "--output", "--format"}},
+    "xargs": {"value_opts": {"-I", "-n", "-P", "-d", "-a", "-E", "-s", "-L",
+                             "--max-args", "--max-procs", "--delimiter", "--arg-file",
+                             "--eof", "--max-chars", "--max-lines"}},
+    "timeout": {"value_opts": {"-s", "-k", "--signal", "--kill-after"},
+                "skip_positional": 1},
+    "command": {"value_opts": {}},
+    "builtin": {"value_opts": {}},
+    "exec": {"value_opts": {}},
+    "chroot": {"value_opts": {"--userspec", "--groups"}},
+    "busybox": {"value_opts": {}},
+}
+
+
+def _shell_inner(argv):
+    """从 shell 包装 argv 中取出执行开关后的内层命令文本（无则返回 None）。"""
+    for i, tok in enumerate(argv[1:], start=1):
+        low = tok.lower()
+        if low in _SHELL_EXEC_FLAGS or _SHELL_EXEC_FLAG_RE.match(low):
+            rest = argv[i + 1:]
+            if not rest:
+                return None
+            parts = []
+            for item in rest:
+                # Windows 下 shlex(posix=False) 会保留外层引号，剥掉后再拼内层命令
+                if len(item) >= 2 and item[0] == item[-1] and item[0] in ("'", '"'):
+                    item = item[1:-1]
+                parts.append(item)
+            return " ".join(parts)
+    return None
+
+
+def _strip_wrapper(argv, spec):
+    """跳过包装命令自身的选项/参数，返回内层命令 argv（找不到则空列表）。"""
+    value_opts = spec.get("value_opts", set())
+    i = 1
+    n = len(argv)
+    while i < n:
+        tok = argv[i]
+        if spec.get("assignments") and "=" in tok and not tok.startswith("-"):
+            i += 1
+            continue
+        if tok == "--":
+            i += 1
+            break
+        if tok.startswith("-") and tok != "-":
+            i += 2 if tok in value_opts else 1
+            continue
+        break
+    i += int(spec.get("skip_positional", 0) or 0)
+    return argv[i:] if i < n else []
+
+
+def _unwrap_argv(argv, depth=0):
+    """返回需要做 argv 级分析的命令列表（含解包出的内层命令）。"""
+    if not argv or depth > _UNWRAP_MAX_DEPTH:
+        return []
+    verb = os.path.basename(argv[0]).lower()
+    if verb in _SHELL_WRAPPERS:
+        inner = _shell_inner(argv)
+        return _unwrap_argv(_tokenize(inner), depth + 1) if inner else []
+    spec = _WRAPPER_SPECS.get(verb)
+    if spec:
+        rest = _strip_wrapper(argv, spec)
+        return _unwrap_argv(rest, depth + 1) if rest else []
+    return [argv]
 
 
 # ── argv 级规则（按动词分组）───────────────────────────────────────────────
