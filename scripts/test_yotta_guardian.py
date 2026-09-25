@@ -182,6 +182,58 @@ class WrapperBypassTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
+class CompoundCommandTest(unittest.TestCase):
+    """复合命令拆分（v0.1.6）：分隔符 / 命令替换之后的危险段不得放行。"""
+
+    def test_and_chain_rm_root_denied(self):
+        r = run_cli(["check", "exec", "--cmd", "echo ok && " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("ARG-RM-SYSTEM", r.stdout)
+
+    def test_semicolon_chain_rm_root_denied(self):
+        r = run_cli(["check", "exec", "--cmd", "ls; " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_or_chain_rm_root_denied(self):
+        r = run_cli(["check", "exec", "--cmd", "true || " + RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_newline_chain_dd_denied(self):
+        r = run_cli(["check", "exec", "--cmd", "echo ok\n" + DD_DEV])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_command_substitution_rm_root_denied(self):
+        r = run_cli(["check", "exec", "--cmd", "echo $(" + RM_RF_ROOT + ")"])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_backtick_substitution_rm_root_denied(self):
+        r = run_cli(["check", "exec", "--cmd", "echo `" + RM_RF_ROOT + "`"])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+
+    def test_quoted_separator_not_split(self):
+        r = run_cli(["check", "exec", "--cmd", 'echo "a && b"'])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_compound_safe_command_allowed(self):
+        r = run_cli(["check", "exec", "--cmd", "git status && git log --oneline -1"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_allow_rule_not_applied_to_compound(self):
+        r = run_cli(["check", "exec", "--cmd", "echo ok && " + RM_RF_TMP,
+                     "--allow", RM_RF_TMP])
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+    def test_simple_command_allow_still_works(self):
+        r = run_cli(["check", "exec", "--cmd", RM_RF_TMP, "--allow", RM_RF_TMP])
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("ALLOW", r.stdout)
+
+    def test_unclosed_quote_flagged(self):
+        r = run_cli(["check", "exec", "--cmd", 'echo "abc'])
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("CMD-UNPARSED", r.stdout)
+
+
 class PrivilegeCommandTest(unittest.TestCase):
     def test_chmod_777_root_critical(self):
         r = run_cli(["check", "exec", "--cmd", CHMOD_777_ROOT])

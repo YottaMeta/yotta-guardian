@@ -51,7 +51,7 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 import guardian_rules as GR  # noqa: E402
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 TOOL_NAME = "yotta-guardian"
 TOOL_CN = "元盾"
 
@@ -279,14 +279,15 @@ class RuleEngine:
     def _argv_findings(self, call):
         if call.tool not in ("exec", "run", "shell"):
             return []
-        argv = _tokenize(call.cmd)
-        if not argv:
-            return []
         findings = []
-        # v0.1.5：先做包装解包（sh -c / cmd /c / powershell -Command / sudo / env …），
-        # 否则只看 argv[0] 会漏掉内层真正的危险动词。
-        for sub in _unwrap_argv(argv):
-            findings += self._argv_findings_one(sub)
+        # v0.1.6：先拆复合命令（; && || | & 换行）与命令替换，再逐段解包 +
+        # 跑同一套 argv 规则；v0.1.5 的包装解包对每段继续生效。
+        for seg in _command_segments(call.cmd):
+            argv = _tokenize(seg)
+            if not argv:
+                continue
+            for sub in _unwrap_argv(argv):
+                findings += self._argv_findings_one(sub)
         return findings
 
     def _argv_findings_one(self, argv):
@@ -326,6 +327,12 @@ class RuleEngine:
 
     def _allow_hit(self, call):
         if call.tool in ("exec", "run", "shell"):
+            # v0.1.6：放行规则只覆盖「单一简单命令」。复合命令或命令替换不允许被
+            # 整条放行——否则 `echo ok && <危险命令>` 会借放行规则绕过风险判定。
+            if (len(_split_compound(call.cmd)) > 1
+                    or _extract_substitutions(call.cmd)
+                    or _scan_quotes(call.cmd)):
+                return False
             for rx in self.allow_text + self.allow_patterns:
                 if rx.search(call.cmd):
                     return True
@@ -343,6 +350,14 @@ class RuleEngine:
         findings = []
         if call.tool in ("exec", "run", "shell"):
             findings += self._text_findings(call.cmd, "command")
+            if _scan_quotes(call.cmd):
+                findings.append(Finding("CMD-UNPARSED", "medium", "command",
+                                        "命令引号未闭合，无法可靠拆分，按未知风险处理",
+                                        80))
+            segments = _command_segments(call.cmd)
+            if len(segments) > 1:
+                for seg in segments:
+                    findings += self._text_findings(seg, "command")
             findings += self._argv_findings(call)
         elif call.tool in ("write", "edit"):
             findings += self._path_findings(call.path)
@@ -544,6 +559,144 @@ def _unwrap_argv(argv, depth=0):
         rest = _strip_wrapper(argv, spec)
         return _unwrap_argv(rest, depth + 1) if rest else []
     return [argv]
+
+
+# ── 复合命令拆分（v0.1.6）─────────────────────────────────────────────────
+# v0.1.5 解决了包装命令（sh -c / sudo / env …）绕过，但整条命令仍然只按第一个词
+# 做 argv 分析：`echo ok && rm -rf /`、`ls; rm -rf /`、`true || rm -rf /` 里的
+# 危险段藏在分隔符之后，整条命令因此被判放行。现在先按顶层分隔符拆分、再逐段跑
+# 同一套文本 / argv 规则；命令替换（$(...) / `...`）同样展开；拆分不安全时 fail-closed。
+_COMPOUND_SEPARATORS = (";", "|", "&", "\n", "\r")
+_SEGMENT_MAX = 32
+_SEGMENT_DEPTH = 3
+_SUBST_MAX = 16
+_QUOTES = ("'", '"', "`")
+
+
+def _scan_quotes(cmd):
+    """扫描引号闭合情况，返回未闭合的引号字符（全部闭合返回 None）。"""
+    quote = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if quote:
+            if quote != "'" and ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in _QUOTES:
+            quote = ch
+        elif ch == "\\" and i + 1 < n:
+            i += 2
+            continue
+        i += 1
+    return quote
+
+
+def _split_compound(cmd):
+    """按顶层分隔符（; && || | & 换行）拆分命令，引号 / 转义内不拆。"""
+    segs = []
+    cur = []
+    quote = None
+    i = 0
+    n = len(cmd)
+    while i < n:
+        ch = cmd[i]
+        if quote:
+            cur.append(ch)
+            if quote != "'" and ch == "\\" and i + 1 < n:
+                cur.append(cmd[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in _QUOTES:
+            quote = ch
+            cur.append(ch)
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            cur.append(ch)
+            cur.append(cmd[i + 1])
+            i += 2
+            continue
+        if ch in _COMPOUND_SEPARATORS:
+            seg = "".join(cur).strip()
+            if seg:
+                segs.append(seg)
+            cur = []
+            i += 1
+            continue
+        cur.append(ch)
+        i += 1
+    seg = "".join(cur).strip()
+    if seg:
+        segs.append(seg)
+    return segs
+
+
+def _extract_substitutions(text):
+    """取出 $(...) 与 `...` 里的内层命令文本（数量上限，防构造爆炸）。"""
+    out = []
+    i = 0
+    n = len(text)
+    while i < n and len(out) < _SUBST_MAX:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if ch == "$" and i + 1 < n and text[i + 1] == "(":
+            depth = 0
+            j = i + 1
+            while j < n:
+                if text[j] == "(":
+                    depth += 1
+                elif text[j] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            if j < n:
+                out.append(text[i + 2:j])
+                i = j + 1
+                continue
+            break
+        if ch == "`":
+            j = i + 1
+            while j < n and text[j] != "`":
+                if text[j] == "\\":
+                    j += 1
+                j += 1
+            if j < n:
+                out.append(text[i + 1:j])
+                i = j + 1
+                continue
+            break
+        i += 1
+    return out
+
+
+def _command_segments(cmd, depth=0):
+    """展开复合命令与命令替换，返回需要逐段分析的命令文本（去重、保序）。"""
+    segs = _split_compound(cmd)
+    expanded = list(segs)
+    if depth < _SEGMENT_DEPTH:
+        for seg in segs:
+            for sub in _extract_substitutions(seg):
+                expanded += _command_segments(sub, depth + 1)
+    out = []
+    for seg in expanded:
+        if seg and seg not in out:
+            out.append(seg)
+        if len(out) >= _SEGMENT_MAX:
+            break
+    return out
 
 
 # ── argv 级规则（按动词分组）───────────────────────────────────────────────
