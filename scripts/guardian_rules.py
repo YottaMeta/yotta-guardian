@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""guardian_rules.py — YottaMeta 元盾（yotta-guardian）内置规则表（数据，不含匹配逻辑）。
+r"""guardian_rules.py — YottaMeta 元盾（yotta-guardian）内置规则表（数据，不含匹配逻辑）。
 
 本文件只声明规则数据，与 yotta-security-audit（元安）/ yotta-vetter（元审）的
 「源码静态扫描」规则不同：这里是「工具调用护栏」规则，面向 exec / write / edit 等

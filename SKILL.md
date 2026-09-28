@@ -48,9 +48,19 @@ python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --tai
 ## 工作流程（AI 智能体执行危险操作前）
 
 1. **先检查**：把将要执行的工具调用交给护栏 `check`（单条或 `--batch` 批量）。
-2. **看退出码**：0 = 允许；1 = 允许但带警告（建议人工复核）；2 / 3 = 拒绝（high / critical，不要执行）；4 = 用法错误。
+2. **看退出码**：0 = 允许；1 = 允许但带警告（建议人工复核）；2 / 3 = 拒绝（high / critical，不要执行）；4 = 用法错误 / 致命异常（引擎没跑起来 —— 绝不要当作放行）。
 3. **被拒绝怎么办**：如实向用户报告原因与命中规则；确有授权的操作，用 `--allow` / `--allow-path` / 自定义规则文件放行并留审计记录；**不要绕过检查**。
 4. **留痕**：高风险场景用 `--audit-log` 落审计日志，供追溯。
+
+## 宿主接入（把护栏挂到「工具调用前」事件时）
+
+`skill-manifest.json` 声明 `before_tool` + `fallback: explicit-unverified`。接入方按下面三条做，可避开实测踩过的坑：
+
+1. **放行不要回「允许」**：只在拦截时输出拒绝判定（如 `permissionDecision: "deny"`）；放行时**不输出任何判定**，把决定权交回宿主。若放行时回「allow」，会覆盖宿主自身的权限流程，护栏就变成自动放行器 —— 护栏只该「拦」，不该「代批」。
+2. **用文件接引擎输出**：部分 hook 进程环境里，用管道捕获子进程 stdout 会拿到空值（同一写法跑 `python -c "print(1)"` 却正常）；把引擎 stdout / stderr 重定向到临时文件再读回，判定即稳定（引擎自身的 stdout 是纯净的，`--json` 可直接解析）。
+3. **stdin 先按 UTF-8 读**：hook 载荷里的命令文本常含中文，按本机默认码页解码会乱码；读 stdin 前先 `sys.stdin.reconfigure(encoding="utf-8")`（引擎已对自身 stdout / stderr 做 UTF-8 处理，stdin 由接入方负责）。
+
+另外：引擎对「没跑起来」是 fail-closed 的 —— 规则表加载失败或运行期未预期异常一律以退出码 4 结束并在 stderr 写「致命异常: …」。接入方应把 4 当作**不放行 + 报告**处理，而不是放行。
 
 ## 策略（policy）
 

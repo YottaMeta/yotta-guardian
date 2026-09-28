@@ -12,6 +12,7 @@
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -554,6 +555,48 @@ class CliErrorTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0,
                          r.stderr.decode("gbk", errors="replace"))
         self.assertNotIn(b"UnicodeEncodeError", r.stderr)
+
+
+class FatalExitCodeTest(unittest.TestCase):
+    """引擎致命异常必须走退出码 4；绝不能落到 1。
+
+    契约：1 = 允许但带警告（建议人工复核）。若引擎崩溃走 Python 默认的 1，
+    按退出码判定的宿主会把「护栏没跑起来」读成放行（fail-open）。
+    背景：2026-09-28 元盾 0.1.7 实测（WorkBuddy）发现未捕获异常走默认 1。
+    """
+
+    def test_rules_import_failure_exits_4(self):
+        """规则表加载失败（如非法转义在严格告警下编译失败）→ 4，不是 1。"""
+        with tempfile.TemporaryDirectory() as td:
+            dest = Path(td)
+            shutil.copy2(SCRIPT, dest / "yotta_guardian.py")
+            (dest / "guardian_rules.py").write_text(
+                "raise RuntimeError('注入的致命异常')\n", encoding="utf-8")
+            r = subprocess.run(
+                [sys.executable, str(dest / "yotta_guardian.py"), "version"],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=60)
+            self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
+            self.assertIn("致命异常", r.stderr)
+
+    def test_main_crash_exits_4_not_1(self):
+        """运行期未预期异常（审计日志指向目录）→ 4，且明确不是 1。"""
+        with tempfile.TemporaryDirectory() as td:
+            r = run_cli(["check", "exec", "--cmd", "git status", "--audit-log", td])
+            self.assertNotEqual(
+                r.returncode, 1, "引擎崩溃绝不能落在「允许但带警告」：" + r.stdout + r.stderr
+            )
+            self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
+            self.assertIn("致命异常", r.stderr)
+
+    def test_strict_warnings_still_runs(self):
+        """转义修复回归：PYTHONWARNINGS=error + 无 pyc 缓存时引擎仍能加载并判定。"""
+        with tempfile.TemporaryDirectory() as cache:
+            r = run_cli(
+                ["check", "exec", "--cmd", RM_RF_ROOT],
+                env={"PYTHONWARNINGS": "error", "PYTHONPYCACHEPREFIX": cache},
+            )
+            self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

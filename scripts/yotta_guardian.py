@@ -49,7 +49,13 @@ except Exception:
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
-import guardian_rules as GR  # noqa: E402
+try:
+    import guardian_rules as GR  # noqa: E402
+except BaseException as _import_exc:  # 规则表加载失败 = 引擎没跑起来 → 致命异常（4）
+    sys.stderr.write(
+        "致命异常: 规则表加载失败: %s: %s\n" % (type(_import_exc).__name__, _import_exc)
+    )
+    raise SystemExit(4)
 
 VERSION = "0.1.7"
 TOOL_NAME = "yotta-guardian"
@@ -1367,4 +1373,16 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    # 顶层兜底（2026-09-28）：未捕获异常一律按「致命异常」退出码 4 结束。
+    # 绝不能让引擎崩溃落到 1 —— 契约里 1 = 允许但带警告，按退出码判定的宿主会把
+    # 「护栏没跑起来」读成放行（fail-open）。SystemExit / KeyboardInterrupt 原样透传。
+    try:
+        main()
+    except (SystemExit, KeyboardInterrupt):
+        raise
+    except BaseException as exc:  # 兜底就是要 catch-all
+        try:
+            sys.stderr.write("致命异常: %s: %s\n" % (type(exc).__name__, exc))
+        except Exception:
+            pass
+        raise SystemExit(4)
