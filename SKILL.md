@@ -1,6 +1,6 @@
 ---
 name: yotta-guardian
-version: 0.1.6
+version: 0.1.7
 description: 元盾 —— 跨智能体的危险调用拦截护栏：确定性规则引擎 + 可插拔意图验证（不绑模型），拦截危险 exec / write / edit / read / run / shell 工具调用，提供审计日志。触发：代理要执行高风险命令（递归删除、磁盘格式化、提权、防火墙改动、反向 shell、下载即执行等）、要写入系统敏感路径或修改系统配置、要在执行危险操作前做安全检查、或用户说 护栏/拦截/危险操作/安全检查 等。边界：默认只读评估，不自动执行也不放行危险操作；不替代用户决策；不隐藏审计记录；规则可配置。
 license: MIT
 ---
@@ -27,7 +27,7 @@ license: MIT
 
 Windows 用 python，Linux/macOS 用 python3。
 
-`_BT_`bash
+```bash
 # 检查一条 exec（0 = 允许）
 python3 scripts/yotta_guardian.py check exec --cmd "git status"
 
@@ -43,7 +43,7 @@ python3 scripts/yotta_guardian.py check --batch calls.json --json
 # 审计
 python3 scripts/yotta_guardian.py check exec --cmd "..." --audit-log .yotta-guardian/audit.jsonl
 python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --tail 20
-`_BT_`
+```
 
 ## 工作流程（AI 智能体执行危险操作前）
 

@@ -1,5 +1,13 @@
 # 更新日志
 
+## v0.1.7 (2026-09-28)
+
+文档格式修复（引擎与规则零功能变更）。
+
+- **修复代码围栏**：`SKILL.md` 与 `references/`（intent-verifier / policies / rules）中被写作管线占位符顶替的代码围栏，全部还原为标准三个反引号，共 20 处；此前自 0.1.0 起一直未还原，Markdown 渲染异常（命令与配置示例无法按代码块显示）。
+- **文档守卫联动**：`tools/validate-skill.py` 与 `tools/preflight-publish.py` 增加交付面 Markdown 完整性检查（占位符残留 / 伪围栏 / 未闭合围栏，命中即拦），本版起发布前必过。
+- 引擎行为、检测规则、退出码与 CLI 输出零变化；版本四处对齐 0.1.7。
+
 ## v0.1.6 (2026-09-25)
 
 安全修复：复合命令拆分，堵住分隔符后的危险段绕过。
@@ -50,7 +58,7 @@
 
 - **README.md 改为英文**：作为 GitHub / npm / ClawHub 首页的英文门面（翻译 + 精简，覆盖定位 / 核心价值 / 命令 / 快速使用 / 安装 / 使用示例 / 边界 / 开发校验全流程）。
 - **新增 README.zh-CN.md**：原中文完整主文档整体平移，顶部加语言切换链接。
-- **修复代码围栏**：README 中 `_BT_`bash / `_BT_` 占位符全部改为标准 ```bash / ```（Markdown 渲染修复）。
+- **修复代码围栏**：README 中的围栏占位符（写作管线留下的标记）全部改为标准 ```bash / ```（Markdown 渲染修复）。
 - **package.json**：description 改英文；files 加 README.zh-CN.md；版本 0.1.0 → 0.1.1。
 - 版本四处对齐：package.json / SKILL frontmatter / 引擎 VERSION / 文档。
 - 边界（B 方案）：references / CHANGELOG / 测试注释不翻译；SKILL 触发描述保持中文。

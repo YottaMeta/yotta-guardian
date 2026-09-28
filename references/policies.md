@@ -34,9 +34,9 @@ AI 智能体判断：退出码非 0 时不要直接执行；2 / 3 一律停下�
 
 ### 执行前 gate
 
-`_BT_`bash
+```bash
 python3 scripts/yotta_guardian.py check exec --cmd "<待执行命令>" --json
-`_BT_`
+```
 
 - exit 0：执行。
 - exit 1：执行但提示用户「护栏给出中危警告」。
@@ -45,9 +45,9 @@ python3 scripts/yotta_guardian.py check exec --cmd "<待执行命令>" --json
 
 ### 批量预检
 
-`_BT_`bash
+```bash
 python3 scripts/yotta_guardian.py check --batch calls.json --json
-`_BT_`
+```
 
 calls.json 为数组或 {"calls": [...]}，每项含 tool / cmd / path / content / old / new / target。任一被拒时整体退出码取最严重值。
 
@@ -55,25 +55,25 @@ calls.json 为数组或 {"calls": [...]}，每项含 tool / cmd / path / content
 
 确有授权的操作（如正规重启、备份清理）用显式放行，而不是绕过检查：
 
-`_BT_`bash
+```bash
 python3 scripts/yotta_guardian.py check exec --cmd "<命令>" --allow "<模式>"
 python3 scripts/yotta_guardian.py check write --path "<路径>" --allow-path "<前缀>"
-`_BT_`
+```
 
 ### 审计
 
-`_BT_`bash
+```bash
 # 检查时落审计
 python3 scripts/yotta_guardian.py check exec --cmd "<命令>" --audit-log .yotta-guardian/audit.jsonl
 
 # 查询
 python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --tail 20
 python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --denied --json
-`_BT_`
+```
 
 ## 五、JSON 输出结构（check --json）
 
-`_BT_`json
+```json
 {
   "tool": "yotta-guardian",
   "version": "0.1.0",
@@ -93,4 +93,4 @@ python3 scripts/yotta_guardian.py audit --file .yotta-guardian/audit.jsonl --den
     }
   ]
 }
-`_BT_`
+```

@@ -13,7 +13,7 @@
 
 引擎对「允许」结论的调用发起验证，写入 stdin 的 JSON：
 
-`_BT_`json
+```json
 {
   "tool": "exec",
   "cmd": "npm install",
@@ -24,19 +24,19 @@
   "cwd": "/home/user/project",
   "findings": []
 }
-`_BT_`
+```
 
 字段说明：tool 为工具类型；cmd / path / content_preview（内容前 500 字符）/ target 为调用内容；policy 为当前策略；findings 为确定性规则已命中的条目（允许结论下通常为空或仅低危）。
 
 ## 三、响应（stdout，JSON）
 
-`_BT_`json
+```json
 {
   "verdict": "allow",
   "severity": "low",
   "reason": "安装依赖，无恶意信号"
 }
-`_BT_`
+```
 
 - verdict：allow / deny / review 三选一（必须）。
 - severity：可选，deny 时默认 high；取值 info / low / medium / high / critical。
@@ -59,7 +59,7 @@
 
 ## 六、示例验证器（Python 桩）
 
-`_BT_`python
+```python
 #!/usr/bin/env python3
 import json
 import sys
@@ -71,6 +71,6 @@ if cmd.startswith("danger"):
 else:
     out = {"verdict": "allow", "severity": "low", "reason": "无风险信号"}
 json.dump(out, sys.stdout)
-`_BT_`
+```
 
 真实场景可用该协议把调用摘要发给 LLM 网关做语义判断，返回同样的 JSON 即可接入。

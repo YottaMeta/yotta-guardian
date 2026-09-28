@@ -101,7 +101,7 @@
 
 ## 六、自定义规则文件（--config）
 
-`_BT_`json
+```json
 {
   "policy": "default",
   "allow": ["^git "],
@@ -109,7 +109,7 @@
   "deny": ["^evil"],
   "verifier": { "command": ["python3", "/path/verifier.py"], "timeout": 30 }
 }
-`_BT_`
+```
 
 - policy: default / strict / loose
 - allow: 命令正则放行模式
