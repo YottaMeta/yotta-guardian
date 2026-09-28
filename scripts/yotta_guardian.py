@@ -1144,7 +1144,8 @@ def _build_verifier(args):
 
 def _print_check_text(call, verdict, color):
     def c(s, code):
-        return "\033[%sm\033[0m" % (code, s) if color else s
+        # 2026-09-28：原写法只有 1 个 %s 却喂了 2 个参数 → 彩色路径（真人终端）必崩 TypeError。
+        return "\033[%sm%s\033[0m" % (code, s) if color else s
     kind = c("DENY", "31;1") if not verdict.allowed else c("ALLOW", "32;1")
     sev = verdict.severity.upper()
     print("[检查]  %s" % call.describe(300))

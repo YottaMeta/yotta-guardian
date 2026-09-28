@@ -599,6 +599,66 @@ class FatalExitCodeTest(unittest.TestCase):
             self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
 
 
+FAKE_TTY_HARNESS = '''\
+import runpy
+import sys
+
+
+class FakeTty:
+    """只把 isatty() 报成 True，其余委托真实 stdout —— 复现真人终端分支。"""
+
+    def __init__(self, real):
+        self._real = real
+
+    def isatty(self):
+        return True
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+script = sys.argv[1]
+sys.stdout = FakeTty(sys.stdout)
+sys.argv = [script] + sys.argv[2:]
+try:
+    runpy.run_path(script, run_name="__main__")
+except SystemExit as exc:
+    raise SystemExit(exc.code if isinstance(exc.code, int) else 1)
+'''
+
+
+class ColorOutputTest(unittest.TestCase):
+    """彩色输出路径（isatty=True）：真人终端手敲 CLI 走的就是这条。
+
+    2026-09-28 第三轮实测发现：`c()` 的格式串只有 1 个 %s 却喂 2 个参数，
+    彩色分支必抛 TypeError（exit 4、判定完全不输出）。此前所有测试都经管道
+    （isatty=False），这条路从未被执行 —— 属覆盖盲区，故补假 TTY 用例锁死。
+    """
+
+    def _run_fake_tty(self, args):
+        with tempfile.TemporaryDirectory() as td:
+            harness = Path(td) / "fake_tty.py"
+            harness.write_text(FAKE_TTY_HARNESS, encoding="utf-8")
+            env = dict(os.environ)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            return subprocess.run(
+                [sys.executable, str(harness), str(SCRIPT)] + args,
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=60, env=env,
+            )
+
+    def test_color_path_dangerous_command(self):
+        r = self._run_fake_tty(["check", "exec", "--cmd", RM_RF_ROOT])
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("DENY", r.stdout)
+        self.assertNotIn("致命异常", r.stderr)
+
+    def test_color_path_safe_command(self):
+        r = self._run_fake_tty(["check", "exec", "--cmd", "git status"])
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("ALLOW", r.stdout)
+
+
 if __name__ == "__main__":
     suite = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__])
     ok = unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful()
