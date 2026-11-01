@@ -57,7 +57,7 @@ except BaseException as _import_exc:  # 规则表加载失败 = 引擎没跑起�
     )
     raise SystemExit(4)
 
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 TOOL_NAME = "yotta-guardian"
 TOOL_CN = "元盾"
 
