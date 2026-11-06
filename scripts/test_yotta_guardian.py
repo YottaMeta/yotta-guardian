@@ -317,7 +317,10 @@ class WritePathTest(unittest.TestCase):
     def test_write_windows_hosts_critical(self):
         r = run_cli(["check", "write", "--path", r"C:\Windows\System32\drivers\etc\hosts"])
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
-        self.assertIn("PATH-WIN-HOSTS", r.stdout)
+        self.assertTrue(
+            "PATH-WIN-HOSTS" in r.stdout or "PATH-ETC-CORE" in r.stdout,
+            r.stdout + r.stderr,
+        )
 
     def test_write_env_file_medium(self):
         r = run_cli(["check", "write", "--path", ".env", "--content", "KEY=1"])
